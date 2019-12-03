@@ -25,6 +25,7 @@ ssq=${datadir}'unicode/emoji/emoji-sequences.txt'
 
 expr=$(echo $1 | sed 's/+/ + /g' | sed 's/:/ : /g')
 
+# Checks if the Unicode codepoint argument is a default emoji presentation
 is_emoji_pres () {
 	data=$(grep -v "^#" $datafile | grep Emoji_Presentation | cut -d";" -f1)
 	found="no"
@@ -47,10 +48,12 @@ is_emoji_pres () {
 	esac
 }
 
+# Checks if codepoint has text variant
 has_text_var () {
 	grep -w "^$1" $varseq >/dev/null
 }
 
+# Returns the Unicode codepoint of an emoji name
 lookup () {
 	suf="no"
 	if [[ ${1: -1} == "$" ]]; then
@@ -76,6 +79,7 @@ lookup () {
 	fi
 }
 
+# Parsing the argument
 res=""
 zwj="no"
 joined="no"
@@ -96,14 +100,14 @@ if [[ $zwj == "yes" ]]; then
 	grep "^$res" $zwjseq >/dev/null ||\
 	# Fallback to check if emoji is valid without the emoji presentation char (0xFE0F)
 	( grep "^${res/ FE0F/}" $zwjseq >/dev/null && res=${res/ FE0F/} ) ||\
-	exit 20
+	{ echo Emoji is not a valid zwj sequence >&2; exit 20; }
 elif [[ $joined == "yes" ]]; then
 	grep "^$res" $ssq >/dev/null ||\
 	# Fallback to check if emoji is valid without the emoji presentation char (0xFE0F)
 	( grep "^${res/ FE0F/}" $ssq >/dev/null && res=${res/ FE0F/} ) ||\
-	exit 30
+        { echo Emoji is not a valid sequence >&2; exit 30; }
 elif [[ $(echo $res | wc -w) == "2" ]]; then
-	grep "^$res" $varseq >/dev/null || exit 10
+	grep "^$res" $varseq >/dev/null || { echo Emoji is not a valid text/emoji style sequence >&2; exit 10; }
 fi
 
 out=""
