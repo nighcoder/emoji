@@ -79,6 +79,46 @@ lookup () {
 	fi
 }
 
+# Returns one or more Unicode codepoints for given emoji
+U_codepoints () {
+	while read -N1 c; do
+		v=$(printf "%X " \'$c)
+       		[[ $v != "0 " ]] && echo $v
+	done <<< $1
+}
+
+get_name () {
+	local res=''
+	for code in $@; do
+		case $code in
+			200D) res+="+";;
+			FE0E) res+="$";;
+			FE0F) continue;;
+			*)    name=$(grep -w "^$code" $names | cut -f2)
+			      [[ -z $name ]] && { echo Unknown emoji with Unicode: $code;
+			      			  return 110; }
+      			      [[ -n $res ]] && [[ ${res: -1} != "+" ]] && res+=":" 
+			      res+=$name;;
+		esac
+	done
+	echo $res
+}
+
+
+#rev_lookup () {
+#	local res
+#	while read -N1 c; do 
+#		v=$(printf "%X" \'$c)
+#		case $v in
+#			200D) res+="+";;
+#			FE0E) res+='$';;
+#			FEOF) continue;;
+#			*) res+=$(grep -w "^$v" $names | awk '{print $2}');;
+#		esac
+#	done <<< "$1"
+#	echo $res
+#}
+
 # Parsing the argument
 res=""
 zwj="no"
