@@ -23,7 +23,8 @@ varseq=${datadir}'unicode/emoji/emoji-variation-sequences.txt'
 zwjseq=${datadir}'unicode/emoji/emoji-zwj-sequences.txt'
 ssq=${datadir}'unicode/emoji/emoji-sequences.txt'
 
-expr=$(echo $1 | sed 's/+/ + /g' | sed 's/:/ : /g')
+version="0.0.1"
+newline="yes"
 
 # Checks if the Unicode codepoint argument is a default emoji presentation
 is_emoji_pres () {
@@ -87,6 +88,31 @@ U_codepoints () {
 	done <<< $1
 }
 
+helper () {
+	echo "Usage: emoji [-n] expression
+       emoji [-h|--help|-v|--version]
+       emoji -i|--info EMOJI
+       
+       Expression is on or more basic emoji names mixed with with the special
+       character +, : or $
+
+       Arguments:
+          -h, --help		print this help text
+	  -v, --version		prints version information and exits
+	  -i, --info EMOJI	shows information about EMOJI
+	  -n			do not append new line after generated emoji
+
+       Exit Status:
+          0	Everything OK.
+	  20	Expression contains valid emoji names, but the sequence is not
+	  	a valid ZWJ sequence.
+	  30	Expression contains valid emoji names, but the sequence is not
+	  	valid.
+	  100	One or more emoji in expression is unknown.
+	  110	The emoji (or part of) passed with -i option is unknown.
+	  "
+}
+
 get_name () {
 	local res=''
 	for code in $@; do
@@ -104,22 +130,24 @@ get_name () {
 	echo $res
 }
 
+# Parsing the arguments
+if [[ ${1:0:1} == "-" ]]; then
+	# An option was passed
+	case $1 in
+		"-h") helper; exit 0;;
+		"--help") helper; exit 0;;
+		"-i") info;;
+		"--info") info;;
+		"-v") echo $version; exit 0;;
+		"--version") echo $version; exit 0;;
+		"-n") newline="no"
+		      expr=$(echo $2 | sed 's/+/ + /g' | sed 's/:/ : /g');;
+		*) echo Invalid option;;
+	esac
+else
+	expr=$(echo $1 | sed 's/+/ + /g' | sed 's/:/ : /g')
+fi
 
-#rev_lookup () {
-#	local res
-#	while read -N1 c; do 
-#		v=$(printf "%X" \'$c)
-#		case $v in
-#			200D) res+="+";;
-#			FE0E) res+='$';;
-#			FEOF) continue;;
-#			*) res+=$(grep -w "^$v" $names | awk '{print $2}');;
-#		esac
-#	done <<< "$1"
-#	echo $res
-#}
-
-# Parsing the argument
 res=""
 zwj="no"
 joined="no"
@@ -156,4 +184,5 @@ for el in $res; do
 done
 
 printf "${out}"
-echo
+[[ $newline == "yes" ]] && echo
+exit 0
