@@ -22,14 +22,17 @@ names=${datadir}'basic-emoji-name.txt'
 varseq=${datadir}'unicode/emoji/emoji-variation-sequences.txt'
 zwjseq=${datadir}'unicode/emoji/emoji-zwj-sequences.txt'
 ssq=${datadir}'unicode/emoji/emoji-sequences.txt'
+cldrfile=${datadir}'unicode/cldr/common/annotations/en.xml'
+cldrseqfile=${datadir}'unicode/cldr/common/annotationsDerived/en.xml'
 
 version="0.0.1"
 newline="yes"
 
 # Checks if the Unicode codepoint argument is a default emoji presentation
 is_emoji_pres () {
-	data=$(grep -v "^#" $datafile | grep Emoji_Presentation | cut -d";" -f1)
-	found="no"
+	local fval lval
+	local data=$(grep -v "^#" $datafile | grep Emoji_Presentation | cut -d";" -f1)
+	local found="no"
 	for d in $data; do
 		if [[ $d == *..* ]]; then
 			fval=$(echo $d | cut -d"." -f1)
@@ -56,7 +59,7 @@ has_text_var () {
 
 # Returns the Unicode codepoint of an emoji name
 lookup () {
-	suf="no"
+	local suf="no" val sol
 	if [[ ${1: -1} == "$" ]]; then
 		val=${1: : -1}
 		suf="yes"
@@ -82,10 +85,12 @@ lookup () {
 
 # Returns one or more Unicode codepoints for given emoji
 U_codepoints () {
+	local v res
 	while read -N1 c; do
 		v=$(printf "%X " \'$c)
-       		[[ $v != "0 " ]] && echo $v
+       		[[ $v != "0 " ]] && res+=$v
 	done <<< $1
+	echo $res
 }
 
 helper () {
@@ -93,28 +98,32 @@ helper () {
        emoji [-h|--help|-v|--version]
        emoji -i|--info EMOJI
        
-       Expression is on or more basic emoji names mixed with with the special
-       character +, : or $
+Expression is on or more basic emoji names mixed with with the special
+character +, : or $. E.g.: 
 
-       Arguments:
-          -h, --help		print this help text
-	  -v, --version		prints version information and exits
-	  -i, --info EMOJI	shows information about EMOJI
-	  -n			do not append new line after generated emoji
 
-       Exit Status:
-          0	Everything OK.
-	  20	Expression contains valid emoji names, but the sequence is not
+
+Arguments:
+	-h, --help		print this help text
+	-v, --version		prints version information and exits
+	-i, --info EMOJI	shows information about EMOJI
+	-n			do not append new line after generated emoji
+
+Exit Status:
+	0	Everything OK.
+	20	Expression contains valid emoji names, but the sequence is not
 	  	a valid ZWJ sequence.
-	  30	Expression contains valid emoji names, but the sequence is not
+	30	Expression contains valid emoji names, but the sequence is not
 	  	valid.
-	  100	One or more emoji in expression is unknown.
-	  110	The emoji (or part of) passed with -i option is unknown.
+	50	An optional flag that requires aditional arguments was set, but
+		the argument is missing.
+	100	One or more emoji in expression is unknown.
+	110	The emoji (or part of) passed with -i option is unknown.
 	  "
 }
 
 get_name () {
-	local res=''
+	local res name
 	for code in $@; do
 		case $code in
 			200D) res+="+";;
@@ -134,12 +143,25 @@ get_name () {
 if [[ ${1:0:1} == "-" ]]; then
 	# An option was passed
 	case $1 in
-		"-h") helper; exit 0;;
-		"--help") helper; exit 0;;
-		"-i") info;;
-		"--info") info;;
-		"-v") echo $version; exit 0;;
-		"--version") echo $version; exit 0;;
+		"-h"|"--help") helper; exit 0;;
+		"-i"|"--info")  [[ -z $2 ]] && { echo Missing emoji argument to -i option >&2;
+						 exit 50; }
+				cp=$(U_codepoints $2)
+				name=$(get_name $cp) 
+				# cldrdata file does not hold the full emoji reprezentation. We must check
+				# for emoji/text flag and only the for the root emoji character
+				arg=$(printf $(echo $cp | sed 's/ FE0[FE]//g; s/\s\?\([0-9A-F]\+\)/\\U\1/g'))
+				cldrdata=$(grep '<annotation .*$' $cldrfile $cldrseqfile | \
+					sed -n "s/^.*cp=\"$arg\".*>\(.\+\)<.*$/\1~/p" )
+				tags=$(echo $cldrdata | cut -d~ -f1 | sed 's/ | /,/g')
+				cldrname=$(echo $cldrdata | cut -d~ -f2 | xargs)
+				echo EXPRESSION:" 		$name"
+				echo EMOJI:" 			$2"
+				echo UNICODE CODEPOINT:"	$cp"
+				echo CLDR NAME:"		$cldrname"
+				echo TAGS:"			$tags"
+				exit 0;;
+		"-v"|"--version") echo $version; exit 0;;
 		"-n") newline="no"
 		      expr=$(echo $2 | sed 's/+/ + /g' | sed 's/:/ : /g');;
 		*) echo Invalid option;;
