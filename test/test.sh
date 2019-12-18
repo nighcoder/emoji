@@ -29,13 +29,23 @@ i="0"
 
 cd src
 for t in $test_params; do
-  if bash emoji.sh $t >/dev/null; then
+  em=$(bash emoji.sh $t 2>/dev/null)
+  if [[ -n $em ]]; then
     pass=$((++pass))
+    i=$((++i))
+    revem=$(bash emoji.sh -i $em 2>/dev/null)
+    if [[ -n $revem ]]; then
+	    pass=$((++pass))
+	    i=$((++i))
+    else
+	    echo Reverse test failed on param $t
+	    fail=$((++fail))
+	    i=$((++i))
+    fi
   else
     echo Test failed on param $t
     fail=$((++fail))
   fi
-  i=$((++i))
 done
 
 echo Tests complete. Performed: ${i} Passed: $pass Failed: $fail
