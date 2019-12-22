@@ -30,6 +30,7 @@ newline="yes"
 
 # Checks if the Unicode codepoint argument is a default emoji presentation
 is_emoji_pres () {
+	[[ $1 =~ " " ]] && return 10
 	local fval lval
 	local data=$(grep -v "^#" $datafile | grep Emoji_Presentation | cut -d";" -f1)
 	local found="no"
@@ -40,7 +41,7 @@ is_emoji_pres () {
 			[[ $(( "0x$1" )) -lt $(( "0x$fval" )) ]] && break
 			[[ $(( "0x$1" )) -ge $(( "0x$fval" )) && $(( "0x$1" )) -le $(( "0x$lval" )) ]] && { found="yes"; break; }
 		elif
-			[[ $(( "0x"$1 )) -lt $(( "0x"$d )) ]]; then
+			[[ $(( "0x$1" )) -lt $(( "0x$d" )) ]]; then
 				break
 			else
 				[[ $d == $1 ]] && { found="yes"; break; }
@@ -81,6 +82,15 @@ lookup () {
 	else
 		echo "${sol}"
 	fi
+}
+# Returns the emoji character for a given Unicode codepoints list
+emojify () {
+	local out=""
+	for el in $@; do
+		out+="\U$el"
+	done
+	
+	printf "${out}"
 }
 
 # Returns one or more Unicode codepoints for given emoji
@@ -163,9 +173,8 @@ if [[ ${1:0:1} == "-" ]]; then
 				exit 0;;
 		"-s"|"--search") [[ -z $2 ]] && { echo Missing search term to -s option >&2;
 						  exit 50; }
-				 mexpr=$(grep -i "$2" $names | sed 's/^\([0-9A-F]\+\)\t\([-a-z_.]\+\)/\\U\1\t\2/')
+				 mexpr=$(grep -i "$2" $names | sed 's/^\([0-9A-F]\+\)\t\([-a-z_.]\+\)/\\U\1\t\2\t/')
 				 mexpr=$(printf "$mexpr")
-			 	 #mexpr=$(sed -n "/$2/ "'s/^\([0-9A-F]\+\)\s*\([-a-z_.]\+\)/\1=\2~/ p' $names)
 				 mcldr=$(grep -hi "$2" $cldrfile $cldrseqfile | sed 's/\s*<annotation cp="\([^[:alnum:]]\+\)"\s\?\(type="tts"\)\?>\(.*\)<\/annotation>/\1\t\2\t\3/')
 				 # First we word match the names
 				 em1=$(echo "$mcldr" | grep type=\"tts\" | cat <(echo "$mexpr") | grep -i "[-_:[:space:]]$2[-_:[:space:]]" | cut -f1 | sort)
@@ -177,13 +186,16 @@ if [[ ${1:0:1} == "-" ]]; then
 				 em4=$(echo "$mcldr" | grep -v type=\"tts\" | grep -iv "[-_:[:space:]]$2[-_:[:space:]]" | cut -f1 | sort | comm -13 <(echo -e "$em1\n$em2\n$em3" | sort) -)
 				 
 				 for el in $em4 $em3 $em2 $em1; do
+					 cp=$(U_codepoints "$el")
 					 ( echo "$mxepr" | grep "^$el" > /dev/null && \
 						 name=$(echo "$mexpr" | grep "^$el" | cut -f2) ) || \
-						 name=$(get_name $(U_codepoints "$el") 2> /dev/null)
+						 name=$(get_name "$cp" 2> /dev/null)
 					 [[ -z "$name" ]] && continue
 				         tags=$(echo "$mcldr" | grep -v type=\"tts\" | grep "^$el\s" | cut -f3 | sed 's/ | /,/g') || \
 						 tags=$(sed -n "/\"$el\"/ "'s|<annotation cp=".*">\(.*\)</annotation>|\1| p' $cldrfile $cldrseqfile | sed 's/\s*|\s*/,/g')
-					 echo -e "$el\t$name\t$tags"
+					 pict=$el
+				 	 is_emoji_pres "$cp" || pict=$(emojify "$cp FE0F")
+					 echo -e "$pict\t$name\t$tags"
 				 done
 				 exit 0;;
 		"-v"|"--version") echo $version; exit 0;;
@@ -225,11 +237,6 @@ elif [[ $(echo $res | wc -w) == "2" ]]; then
 	grep "^$res" $varseq >/dev/null || { echo Emoji is not a valid text/emoji style sequence >&2; exit 10; }
 fi
 
-out=""
-for el in $res; do
-	out+="\U$el"
-done
-
-printf "${out}"
+emojify "$res"
 [[ $newline == "yes" ]] && echo
 exit 0
