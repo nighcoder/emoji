@@ -23,6 +23,7 @@ test_params='running sailboat$ umbrella_on_ground eyes camping$
              biking+female superhero:skin_2+male woman:skin_1+white_hair
              black_flag+skull_and_crossbones'
 
+search_test="tool truck"
 fail="0"
 pass="0"
 i="0"
@@ -47,6 +48,22 @@ for t in $test_params; do
     fail=$((++fail))
   fi
 done
+
+n=$(bash emoji.sh -s tool | wc -l)
+if [[ $n == 23 ]]; then
+	pass=$((++pass))
+else
+	fail=$((++fail))
+fi
+i=$((++i))
+
+n=$(bash emoji.sh -s truck | wc -l)
+if [[ $n == 22 ]]; then
+	pass=$((++pass))
+else
+	fail=$((++fail))
+fi
+i=$((++i))
 
 echo Tests complete. Performed: ${i} Passed: $pass Failed: $fail
 if [[ $fail -lt 255 ]]; then
