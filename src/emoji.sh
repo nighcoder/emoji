@@ -130,7 +130,7 @@ get_name () {
 			FE0E) res+="$";;
 			FE0F) continue;;
 			*)    name=$(grep -w "^$code" $names | cut -f2)
-			      [[ -z $name ]] && { echo Unknown emoji with Unicode: $code;
+			      [[ -z $name ]] && { echo Unknown emoji with Unicode: $code >&2;
 			      			  return 110; }
       			      [[ -n $res ]] && [[ ${res: -1} != "+" ]] && res+=":" 
 			      res+=$name;;
@@ -161,6 +161,31 @@ if [[ ${1:0:1} == "-" ]]; then
 				echo CLDR NAME:"		$cldrname"
 				echo TAGS:"			$tags"
 				exit 0;;
+		"-s"|"--search") [[ -z $2 ]] && { echo Missing search term to -s option >&2;
+						  exit 50; }
+				 mexpr=$(grep -i "$2" $names | sed 's/^\([0-9A-F]\+\)\t\([-a-z_.]\+\)/\\U\1\t\2/')
+				 mexpr=$(printf "$mexpr")
+			 	 #mexpr=$(sed -n "/$2/ "'s/^\([0-9A-F]\+\)\s*\([-a-z_.]\+\)/\1=\2~/ p' $names)
+				 mcldr=$(grep -hi "$2" $cldrfile $cldrseqfile | sed 's/\s*<annotation cp="\([^[:alnum:]]\+\)"\s\?\(type="tts"\)\?>\(.*\)<\/annotation>/\1\t\2\t\3/')
+				 # First we word match the names
+				 em1=$(echo "$mcldr" | grep type=\"tts\" | cat <(echo "$mexpr") | grep -i "[-_:[:space:]]$2[-_:[:space:]]" | cut -f1 | sort)
+				 # Next we word match the tags
+				 em2=$(echo "$mcldr" | grep -v type=\"tts\" | grep -i "[-_:[:space:]]$2[-_:[:space:]]" | cut -f1 | sort | comm -13 <(echo "$em1") -)
+				 # Next we partially match the names
+				 em3=$(echo "$mcldr" | grep type=\"tts\" | grep -iv "[-_:[:space:]]$2[-_:[:space:]]" | cut -f1 | sort | comm -13 <(echo -e "$em1\n$em2" | sort) -)
+				 # Finally we partially match the tags
+				 em4=$(echo "$mcldr" | grep -v type=\"tts\" | grep -iv "[-_:[:space:]]$2[-_:[:space:]]" | cut -f1 | sort | comm -13 <(echo -e "$em1\n$em2\n$em3" | sort) -)
+				 
+				 for el in $em4 $em3 $em2 $em1; do
+					 ( echo "$mxepr" | grep "^$el" > /dev/null && \
+						 name=$(echo "$mexpr" | grep "^$el" | cut -f2) ) || \
+						 name=$(get_name $(U_codepoints "$el") 2> /dev/null)
+					 [[ -z "$name" ]] && continue
+				         tags=$(echo "$mcldr" | grep -v type=\"tts\" | grep "^$el\s" | cut -f3 | sed 's/ | /,/g') || \
+						 tags=$(sed -n "/\"$el\"/ "'s|<annotation cp=".*">\(.*\)</annotation>|\1| p' $cldrfile $cldrseqfile | sed 's/\s*|\s*/,/g')
+					 echo -e "$el\t$name\t$tags"
+				 done
+				 exit 0;;
 		"-v"|"--version") echo $version; exit 0;;
 		"-n") newline="no"
 		      expr=$(echo $2 | sed 's/+/ + /g' | sed 's/:/ : /g');;
