@@ -104,19 +104,19 @@ U_codepoints () {
 }
 
 helper () {
-	echo "Usage: emoji [-n] expression
+	echo "Usage: emoji [-n] EXPRESSION
        emoji [-h|--help|-v|--version]
        emoji -i|--info EMOJI
+       emoji -s|--search TERM
        
 Expression is on or more basic emoji names mixed with with the special
-character +, : or $. E.g.: 
-
-
+character +, : or $.
 
 Arguments:
 	-h, --help		print this help text
 	-v, --version		prints version information and exits
 	-i, --info EMOJI	shows information about EMOJI
+	-s, --search TERM	searches TERM for relevant emoji
 	-n			do not append new line after generated emoji
 
 Exit Status:

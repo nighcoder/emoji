@@ -7,13 +7,20 @@ To install the program in the user directory run make install.
 To install it system wide, run sudo make install.
 
 ### Usage
-    $ emoji command
+There are several optional switches that change the program output.
 
-Command is one or more emoji name. Names identify a basic emoji.
-Complex emojis can formed by chaining several names by using the reserved emojis + or :
+If no switch is present, the program expects an argument representing expression and returns the Unicode emoji character.
+
+    $ emoji [-n] EXPRESSION
+
+An expression is one or more emoji name, that identify a basic emoji, separated by the reserved characters + or :.
 + \+ will substitute to the ligature character U+200D to create a ZWJ sequence.
 + : will not substitute to any character, it is used to separate emoji names in a direct sequence.
 + $ can be add to the end of a emoji and it will force the text representation of the emoji, if the emoji has one.
+
+An _-i_ switch will make the program return the information about the passed emoji.
+
+An _-s_ switch will search the CLDR name and tags database for relevant emojis.
 
 ##### Example
 Basic emojis can be called directly by their names:
