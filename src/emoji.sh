@@ -32,22 +32,23 @@ newline="yes"
 is_emoji_pres () {
 	[[ $1 =~ " " ]] && return 10
 	local fval lval
-	local data=$(grep -v "^#" $datafile | grep Emoji_Presentation | cut -d";" -f1)
+	local data
+	data=$(grep -v "^#" $datafile | grep Emoji_Presentation | cut -d";" -f1)
 	local found="no"
 	for d in $data; do
-		if [[ $d == *..* ]]; then
-			fval=$(echo $d | cut -d"." -f1)
-			lval=$(echo $d | cut -d"." -f3)
+		if [[ "$d" == *..* ]]; then
+			fval=$(echo "$d" | cut -d"." -f1)
+			lval=$(echo "$d" | cut -d"." -f3)
 			[[ $(( "0x$1" )) -lt $(( "0x$fval" )) ]] && break
 			[[ $(( "0x$1" )) -ge $(( "0x$fval" )) && $(( "0x$1" )) -le $(( "0x$lval" )) ]] && { found="yes"; break; }
 		elif
 			[[ $(( "0x$1" )) -lt $(( "0x$d" )) ]]; then
 				break
 			else
-				[[ $d == $1 ]] && { found="yes"; break; }
+				[[ "$d" == "$1" ]] && { found="yes"; break; }
 		fi
 	done
-	case $found in
+	case "$found" in
 		"yes") return 0;;
 		"no") return 1;;
 	esac
@@ -68,14 +69,14 @@ lookup () {
 		val=$1
 	fi
 	sol=$(grep "\s$val$" $names | cut -f1)
-	[ -z $sol ] && { echo Name $1 is not a known emoji >&2
+	[ -z "$sol" ] && { echo "Name $1 is not a known emoji" >&2
 			 return 100; }
-	if has_text_var $sol; then
-		if [[ $suf == yes ]]; then
+	if has_text_var "$sol"; then
+		if [[ "$suf" == yes ]]; then
 			echo "${sol} FE0E"
 		elif
-			is_emoji_pres $sol; then
-			echo $sol
+			is_emoji_pres "$sol"; then
+			echo "$sol"
 		else
 			echo "${sol} FE0F"
 		fi
@@ -86,7 +87,7 @@ lookup () {
 # Returns the emoji character for a given Unicode codepoints list
 emojify () {
 	local out=""
-	for el in $@; do
+	for el in $1; do
 		out+="\U$el"
 	done
 	
@@ -98,9 +99,9 @@ U_codepoints () {
 	local v res
 	while read -N1 c; do
 		v=$(printf "%X " \'$c)
-       		[[ $v != "0 " ]] && res+=$v
-	done <<< $1
-	echo $res
+       		[[ "$v" != "0 " ]] && res+="$v"
+	done <<< "$1"
+	echo "$res"
 }
 
 helper () {
@@ -132,21 +133,22 @@ Exit Status:
 	  "
 }
 
+# Returns the expression of a Unicode codepoint list
 get_name () {
 	local res name
-	for code in $@; do
-		case $code in
+	for code in $1; do
+		case "$code" in
 			200D) res+="+";;
 			FE0E) res+="$";;
 			FE0F) continue;;
 			*)    name=$(grep -w "^$code" $names | cut -f2)
-			      [[ -z $name ]] && { echo Unknown emoji with Unicode: $code >&2;
+			      [[ -z "$name" ]] && { echo "Unknown emoji with Unicode: $code" >&2;
 			      			  return 110; }
       			      [[ -n $res ]] && [[ ${res: -1} != "+" ]] && res+=":" 
-			      res+=$name;;
+			      res+="$name";;
 		esac
 	done
-	echo $res
+	echo "$res"
 }
 
 # Parsing the arguments
@@ -156,21 +158,24 @@ if [[ ${1:0:1} == "-" ]]; then
 		"-h"|"--help") helper; exit 0;;
 		"-i"|"--info")  [[ -z $2 ]] && { echo Missing emoji argument to -i option >&2;
 						 exit 50; }
-				cp=$(U_codepoints $2)
-				name=$(get_name $cp) 
+
+				cp=$(U_codepoints "$2")
+				name=$(get_name "$cp") 
 				# cldrdata file does not hold the full emoji reprezentation. We must check
 				# for emoji/text flag and only the for the root emoji character
-				arg=$(printf $(echo $cp | sed 's/ FE0[FE]//g; s/\s\?\([0-9A-F]\+\)/\\U\1/g'))
+				arg=$(emojify "$(echo $cp | sed 's/ FE0[FE]//g; s/\s\?\([0-9A-F]\+\)/\\U\1/g')")
 				cldrdata=$(grep '<annotation .*$' $cldrfile $cldrseqfile | \
 					sed -n "s/^.*cp=\"$arg\".*>\(.\+\)<.*$/\1~/p" )
 				tags=$(echo $cldrdata | cut -d~ -f1 | sed 's/ | /,/g')
 				cldrname=$(echo $cldrdata | cut -d~ -f2 | xargs)
+
 				echo EXPRESSION:" 		$name"
 				echo EMOJI:" 			$2"
 				echo UNICODE CODEPOINT:"	$cp"
 				echo CLDR NAME:"		$cldrname"
 				echo TAGS:"			$tags"
 				exit 0;;
+
 		"-s"|"--search") [[ -z $2 ]] && { echo Missing search term to -s option >&2;
 						  exit 50; }
 				 mexpr=$(grep -i "$2" $names | sed 's/^\([0-9A-F]\+\)\t\([-a-z_.]\+\)/\\U\1\t\2\t/')
@@ -187,8 +192,8 @@ if [[ ${1:0:1} == "-" ]]; then
 				 
 				 for el in $em4 $em3 $em2 $em1; do
 					 cp=$(U_codepoints "$el")
-					 ( echo "$mxepr" | grep "^$el" > /dev/null && \
-						 name=$(echo "$mexpr" | grep "^$el" | cut -f2) ) || \
+					 { echo "$mxepr" | grep "^$el" > /dev/null && \
+						 name=$(echo "$mexpr" | grep "^$el" | cut -f2); } || \
 						 name=$(get_name "$cp" 2> /dev/null)
 					 [[ -z "$name" ]] && continue
 				         tags=$(echo "$mcldr" | grep -v type=\"tts\" | grep "^$el\s" | cut -f3 | sed 's/ | /,/g') || \
@@ -200,11 +205,11 @@ if [[ ${1:0:1} == "-" ]]; then
 				 exit 0;;
 		"-v"|"--version") echo $version; exit 0;;
 		"-n") newline="no"
-		      expr=$(echo $2 | sed 's/+/ + /g' | sed 's/:/ : /g');;
+		      expr=$(echo "$2" | sed 's/+/ + /g' | sed 's/:/ : /g');;
 		*) echo Invalid option;;
 	esac
 else
-	expr=$(echo $1 | sed 's/+/ + /g' | sed 's/:/ : /g')
+	expr=$(echo "$1" | sed 's/+/ + /g' | sed 's/:/ : /g')
 fi
 
 res=""
@@ -226,12 +231,12 @@ res=$(echo $res)
 if [[ $zwj == "yes" ]]; then
 	grep "^$res" $zwjseq >/dev/null ||\
 	# Fallback to check if emoji is valid without the emoji presentation char (0xFE0F)
-	( grep "^${res/ FE0F/}" $zwjseq >/dev/null && res=${res/ FE0F/} ) ||\
+	{ grep "^${res/ FE0F/}" $zwjseq >/dev/null && res=${res/ FE0F/}; } ||\
 	{ echo Emoji is not a valid zwj sequence >&2; exit 20; }
 elif [[ $joined == "yes" ]]; then
 	grep "^$res" $ssq >/dev/null ||\
 	# Fallback to check if emoji is valid without the emoji presentation char (0xFE0F)
-	( grep "^${res/ FE0F/}" $ssq >/dev/null && res=${res/ FE0F/} ) ||\
+	{ grep "^${res/ FE0F/}" $ssq >/dev/null && res=${res/ FE0F/}; } ||\
         { echo Emoji is not a valid sequence >&2; exit 30; }
 elif [[ $(echo $res | wc -w) == "2" ]]; then
 	grep "^$res" $varseq >/dev/null || { echo Emoji is not a valid text/emoji style sequence >&2; exit 10; }
