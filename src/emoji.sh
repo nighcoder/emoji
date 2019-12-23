@@ -180,13 +180,15 @@ if [[ ${1:0:1} == "-" ]]; then
 						  exit 50; }
 				 mexpr=$(grep -i "$2" $names | sed 's/^\([0-9A-F]\+\)\t\([-a-z_.]\+\)/\\U\1\t\2\t/')
 				 mexpr=$(printf "$mexpr")
-				 mcldr=$(grep -hi "$2" $cldrfile $cldrseqfile | sed 's/\s*<annotation cp="\([^[:alnum:]]\+\)"\s\?\(type="tts"\)\?>\(.*\)<\/annotation>/\1\t\2\t\3/')
+				 # Beyond line 2883 in cldrfile we have future emoji which aren't implemented in the
+				 # current standard
+				 mcldr=$(sed "2882 q" "$cldrfile" | cat - "$cldrseqfile" | grep -hi "$2" | sed 's/\s*<annotation cp="\([^[:alnum:]]\+\)"\s\?\(type="tts"\)\?>\(.*\)<\/annotation>/\1\t\2\t\3\t/')
 				 # First we word match the names
-				 em1=$(echo "$mcldr" | grep type=\"tts\" | cat <(echo "$mexpr") | grep -i "[-_:[:space:]]$2[-_:[:space:]]" | cut -f1 | sort)
+				 em1=$(echo "$mcldr" | grep type=\"tts\" | cat <(echo "$mexpr") - | grep -i "[-_:[:space:]]$2[-_:[:space:]]" | cut -f1 | sort | uniq)
 				 # Next we word match the tags
 				 em2=$(echo "$mcldr" | grep -v type=\"tts\" | grep -i "[-_:[:space:]]$2[-_:[:space:]]" | cut -f1 | sort | comm -13 <(echo "$em1") -)
 				 # Next we partially match the names
-				 em3=$(echo "$mcldr" | grep type=\"tts\" | grep -iv "[-_:[:space:]]$2[-_:[:space:]]" | cut -f1 | sort | comm -13 <(echo -e "$em1\n$em2" | sort) -)
+				 em3=$(echo "$mcldr" | grep type=\"tts\" | cat <(echo "$mexpr") - | grep -iv "[-_:[:space:]]$2[-_:[:space:]]" | cut -f1 | sort | uniq | comm -13  <(echo -e "$em1\n$em2" | sort) -)
 				 # Finally we partially match the tags
 				 em4=$(echo "$mcldr" | grep -v type=\"tts\" | grep -iv "[-_:[:space:]]$2[-_:[:space:]]" | cut -f1 | sort | comm -13 <(echo -e "$em1\n$em2\n$em3" | sort) -)
 				 

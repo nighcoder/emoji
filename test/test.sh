@@ -23,7 +23,6 @@ test_params='running sailboat$ umbrella_on_ground eyes camping$
              biking+female superhero:skin_2+male woman:skin_1+white_hair
              black_flag+skull_and_crossbones'
 
-search_test="tool truck"
 fail="0"
 pass="0"
 i="0"
