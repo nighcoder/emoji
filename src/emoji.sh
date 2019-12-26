@@ -66,7 +66,7 @@ lookup () {
 		val=${1: : -1}
 		suf="yes"
 	else
-		val=$1
+		val="$1"
 	fi
 	sol=$(grep "\s$val$" $names | cut -f1)
 	[ -z "$sol" ] && { echo "Name $1 is not a known emoji" >&2
@@ -162,10 +162,10 @@ if [[ ${1:0:1} == "-" ]]; then
 				cp=$(U_codepoints "$2")
 				name=$(get_name "$cp") 
 				# cldrdata file does not hold the full emoji reprezentation. We must check
-				# for emoji/text flag and only the for the root emoji character
-				arg=$(emojify "$(echo $cp | sed 's/ FE0[FE]//g; s/\s\?\([0-9A-F]\+\)/\\U\1/g')")
+				# for emoji/text flag and only search for the root emoji character
+				arg=$(emojify "$(echo "$cp" | sed 's/ FE0[FE]//g; s/\s\?\([0-9A-F]\+\)/\1/g')")
 				cldrdata=$(grep '<annotation .*$' $cldrfile $cldrseqfile | \
-					sed -n "s/^.*cp=\"$arg\".*>\(.\+\)<.*$/\1~/p" )
+					sed -n "s/^.*cp=\"$arg\".*>\(.\+\)<.*$/\1~/ p")
 				tags=$(echo $cldrdata | cut -d~ -f1 | sed 's/ | /,/g')
 				cldrname=$(echo $cldrdata | cut -d~ -f2 | xargs)
 
@@ -194,7 +194,7 @@ if [[ ${1:0:1} == "-" ]]; then
 				 
 				 for el in $em4 $em3 $em2 $em1; do
 					 cp=$(U_codepoints "$el")
-					 { echo "$mxepr" | grep "^$el" > /dev/null && \
+					 { echo "$mexpr" | grep "^$el" > /dev/null && \
 						 name=$(echo "$mexpr" | grep "^$el" | cut -f2); } || \
 						 name=$(get_name "$cp" 2> /dev/null)
 					 [[ -z "$name" ]] && continue
@@ -219,15 +219,13 @@ zwj="no"
 joined="no"
 for chr in $expr; do
 	case $chr in
-		":") joined="yes";;
+		":") joined="yes"
+		     res+=" ";;
 		"+") res+=" 200D "
 		     zwj="yes";;
-		*) res+="$(lookup $chr) " || exit $?;;
+		*) res+="$(lookup "$chr")" || exit $?;;
 	esac
 done
-
-# Hack to remove the trailing whitespaces
-res=$(echo $res)
 
 # Test the result for known emoji sequences
 if [[ $zwj == "yes" ]]; then
